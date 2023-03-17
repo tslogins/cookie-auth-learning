@@ -1,11 +1,18 @@
+using Microsoft.AspNetCore.DataProtection;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDataProtection();
 
 var app = builder.Build();
 
-app.MapGet("/username", (HttpContext ctx) => 
+app.MapGet("/username", (HttpContext ctx, IDataProtectionProvider idp) => 
 {
-    var authCookie = ctx.Request.Headers.Cookie.FirstOrDefault(x => x.StartsWith("auth"));
-    var payload = authCookie.Split("=").Last();
+    var protector = idp.CreateProtector("auth-cookie");
+
+    var authCookie = ctx.Request.Headers.Cookie.FirstOrDefault(x => x.StartsWith("auth="));
+    var protectedPayload = authCookie.Split("=").Last();
+    var payload = protector.Unprotect(protectedPayload);
     var parts = payload.Split(":");
     var key = parts[0];
     var value = parts[1];
@@ -13,9 +20,10 @@ app.MapGet("/username", (HttpContext ctx) =>
     // return "anton";
 });
 
-app.MapGet("/login", (HttpContext ctx) => 
+app.MapGet("/login", (HttpContext ctx, IDataProtectionProvider idp) => 
 {
-    ctx.Response.Headers["set-cookie"] = "auth=usr:anton";
+    var protector = idp.CreateProtector("auth-cookie");
+    ctx.Response.Headers["set-cookie"] = $"auth={protector.Protect("usr:anton")}";
     return "ok";
 });
 
