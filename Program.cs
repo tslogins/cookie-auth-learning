@@ -1,18 +1,19 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// builder.Services.AddDataProtection();
-// builder.Services.AddHttpContextAccessor();
-// builder.Services.AddScoped<AuthService>();
-builder.Services.AddAuthentication("cookie")
-    .AddCookie("cookie");
+builder.Services.AddDataProtection();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<AuthService>();
+
+// Built-in
+/* builder.Services.AddAuthentication("cookie")
+    .AddCookie("cookie"); */ 
 
 var app = builder.Build();
 
-/* app.Use((ctx, next) => 
+app.Use((ctx, next) => 
 {
     var idp = ctx.RequestServices.GetRequiredService<IDataProtectionProvider>();
     var protector = idp.CreateProtector("auth-cookie");
@@ -27,34 +28,31 @@ var app = builder.Build();
     var claims = new List<Claim>();
     claims.Add(new Claim(key, value));
 
-    var identity = new ClaimsIdentity();
-    ctx.User = new ClaimsPrincipal();
-    return next();
-}); */
+    var identity = new ClaimsIdentity(claims);
+    ctx.User = new ClaimsPrincipal(identity);
 
-app.UseAuthentication();
+    return next();
+});
+
+// Built-in
+// app.UseAuthentication(); 
 
 app.MapGet("/username", (HttpContext ctx) => 
 {
     // return ctx.User.FindFirst("usr").Value;
     return ctx.User;
+
 });
 
-app.MapGet("/login", async (HttpContext ctx) => 
+app.MapGet("/login", async (AuthService auth) => 
 {
-    var claims = new List<Claim>();
-    claims.Add(new Claim("usr", "anton"));
-
-    var identity = new ClaimsIdentity(claims, "cookie");
-    var user = new ClaimsPrincipal();
-
-    await ctx.SignInAsync("cookie", user);
+    auth.SignIn();
     return "ok";
 });
 
 app.Run();
 
-/* public class AuthService
+public class AuthService
 {
     private readonly IDataProtectionProvider _idp;
     private readonly IHttpContextAccessor _accessor;
@@ -69,4 +67,4 @@ app.Run();
         var protector = _idp.CreateProtector("auth-cookie");
         _accessor.HttpContext.Response.Headers["set-cookie"]= $"auth={protector.Protect("usr:anton")}";
     }
-} */
+}
